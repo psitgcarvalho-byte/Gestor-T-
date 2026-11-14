@@ -1,0 +1,1 @@
+{ "name": "T-Gestor", "short_name": "T-Gestor", "description": "Avaliação neuropsicológica com raciocínio clínico estruturado.", "start_url": "./index.html", "scope": "./", "display": "standalone", "background_color": "#ECE7DC", "theme_color": "#ECE7DC", "lang": "pt-BR", "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }] }

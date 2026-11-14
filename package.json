@@ -1,26 +1,22 @@
 {
-  "name": "gestor-t",
+  "name": "t-gestor",
   "private": true,
-  "version": "0.0.0",
+  "version": "2.0.0",
+  "description": "T-Gestor 2.0 — avaliação neuropsicológica com raciocínio clínico estruturado",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+    "build": "node build.mjs",
+    "test": "tsx tests/engine.test.ts && tsx tests/anon.test.ts && tsc -p tsconfig.engine.json"
   },
   "dependencies": {
-    "lucide-react": "^0.562.0",
-    "react-dom": "^19.2.3",
-    "@google/genai": "^1.34.0",
-    "react": "^19.2.3",
-    "recharts": "^3.6.0",
-    "react-router-dom": "^7.11.0",
-    "html-to-image": "^1.11.11"
+    "docx": "9.8.1",
+    "pdfjs-dist": "6.2.108",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
   },
   "devDependencies": {
-    "@types/node": "^22.14.0",
-    "@vitejs/plugin-react": "^5.0.0",
-    "typescript": "~5.8.2",
-    "vite": "^6.2.0"
+    "esbuild": "0.28.2",
+    "tsx": "4.23.12",
+    "typescript": "6.0.3"
   }
 }
