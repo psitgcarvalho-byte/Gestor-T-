@@ -7,7 +7,7 @@ const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 export function perfilSVG(A: Analise, largura = 820): string | null {
   const doms = A.dominios.filter(d => A.medidas.some(m => m.utilizada && m.m.dominio === d.id && m.m.natureza === 'desempenho' && m.lida.z !== null));
   if (!doms.length) return null;
-  const L = 250, R = 30, top = 34, lh = 30, W = largura, H = top + doms.length * lh + 40;
+  const L = 250, R = 30, top = 34, lh = 30, W = largura, H = top + doms.length * lh + 52;
   const x = (z: number) => L + ((Math.max(-3, Math.min(3, z)) + 3) / 6) * (W - L - R);
   const faixas: [number, number, string][] = [[-3, -2, '#E8B9B5'], [-2, -1.5, '#F1D3CF'], [-1.5, -1, '#F4E6CF'], [-1, 1, '#F5F1E8'], [1, 3, '#E3EADB']];
   let s = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" font-family="Georgia, 'Times New Roman', serif">`;
@@ -27,7 +27,8 @@ export function perfilSVG(A: Analise, largura = 820): string | null {
     });
     if (d.mediaZ !== null) s += `<rect x="${x(d.mediaZ) - 1.5}" y="${y - 10}" width="3" height="20" fill="#111111"/>`;
   });
-  s += `<text x="${L}" y="${H - 12}" font-size="10.5" fill="#5A5A4D">Pontos: medidas (vermelho = abaixo do esperado). Traço: média do domínio. Escala em desvios-padrão (equivalência interna; não substitui as tabelas dos manuais).</text>`;
+  s += `<text x="20" y="${H - 24}" font-size="10.5" fill="#5A5A4D">Pontos: medidas (vermelho = abaixo do esperado). Traço: média do domínio.</text>`;
+  s += `<text x="20" y="${H - 10}" font-size="10.5" fill="#5A5A4D">Escala em desvios-padrão (equivalência interna; não substitui as tabelas dos manuais).</text>`;
   return s + '</svg>';
 }
 

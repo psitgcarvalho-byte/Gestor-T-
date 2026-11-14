@@ -79,6 +79,7 @@ const R = []; const t = (n, c, info) => R.push([n, !!c, info]);
   t('Atenção: comprometimento demonstrado e convergente', /Atenção\d*comprometimento demonstrado.*convergente/.test(rac.replace(/\s+/g, '')) || (rac.includes('comprometimento demonstrado') && rac.includes('convergente')));
   t('Memória: lacuna (queixa não avaliada)', rac.includes('lacuna: queixa não avaliada'));
   t('TDE desfavorável fora da integração', rac.includes('instrumento sem parecer favorável'));
+  if (process.env.SHOTS) await pg.screenshot({ path: path.join(OUT, 'tela-raciocinio.png'), fullPage: true });
   t('perfil (gráfico) desenhado', await pg.locator('.perfil svg circle').count() >= 5);
   t('discrepância entre índices detectada', rac.includes('Discrepância'));
   // 7 Hipóteses
@@ -87,6 +88,7 @@ const R = []; const t = (n, c, info) => R.push([n, !!c, info]);
   for (let i = 0; i < 5; i++) await ests.nth(i).locator('button.est.ok').click();
   for (const f of ['História do desenvolvimento', 'Sintomas clinicamente demonstrados', 'Prejuízo funcional']) await pg.click(`.chip:has-text("${f}")`);
   t('TDAH: grau "Fortemente sustentada"', (await pg.textContent('.painel .cartao .selo')).includes('Fortemente sustentada'), await pg.textContent('.painel .cartao .selo'));
+  if (process.env.SHOTS) await pg.screenshot({ path: path.join(OUT, 'tela-hipoteses.png'), fullPage: false });
   t('fonte "Resultados neuropsicológicos" marcada automaticamente', (await pg.textContent('.painel')).includes('Resultados neuropsicológicos (auto)'));
   // 8 Laudo
   await pg.click('#etapa-7');
