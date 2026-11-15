@@ -43,6 +43,9 @@ export function lerClassificacao(txt: string, natureza: 'desempenho' | 'sintoma'
   const s = String(txt || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   if (!s.trim()) return null;
   if (natureza === 'sintoma') {
+    // em escalas de sintomas, "superior"/"acima" significa mais sintomas (ex.: ETDAH); "médio superior" não conta
+    if (/abaixo do (ponto de )?corte|nao atinge|dentro da media/.test(s)) return 'normal-sintoma';
+    if (/acima do (ponto de )?corte|atinge o (ponto de )?corte|(^|[^o] )superior|^superior|muito acima|acima da media/.test(s) && !/medio superior|media superior/.test(s)) return 'elevado-sintoma';
     if (/(clinic|elevad|grave|sever|moderad|leve|acentuad|significativ|alterad|limitrofe|risco|positiv)/.test(s) && !/(nao|sem) (clinic|significativ|alterad)/.test(s)) return 'elevado-sintoma';
     if (/(normal|minim|ausen|nao clinic|sem sinais|esperado|negativ)/.test(s)) return 'normal-sintoma';
     return null;

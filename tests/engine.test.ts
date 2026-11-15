@@ -88,5 +88,27 @@ t('lacuna acadêmica com sugestões de instrumento', A.lacunas.some(l => l.domin
 t('auditoria acusa SATEPSI pendente', A.auditoria.some(a => !a.ok && a.texto.includes('SATEPSI')));
 t('auditoria acusa ausência de referências', A.auditoria.some(a => !a.ok && a.texto.includes('referência')));
 
+// ---- classificações de escalas de sintomas (ETDAH, MASC, ABC) ----
+t('sintoma: "Superior" elevado; "Médio superior" não', lerClassificacao('Superior', 'sintoma') === 'elevado-sintoma' && lerClassificacao('Médio superior', 'sintoma') !== 'elevado-sintoma');
+t('sintoma: "acima do ponto de corte" elevado; "abaixo do corte" normal', lerClassificacao('Acima do ponto de corte', 'sintoma') === 'elevado-sintoma' && lerClassificacao('Abaixo do corte', 'sintoma') === 'normal-sintoma');
+
+// ---- índice composto não conta junto com os próprios subtestes ----
+const av2: Avaliacao = JSON.parse(JSON.stringify(av));
+av2.hipoteses = []; av2.instrumentos = [I('w', 'WISC-IV', 'Favorável'), I('b', 'BPA', 'Favorável'), I('e', 'EPQ-J', 'Favorável')];
+av2.resultados = [
+  M({ instrumentoId: 'w', medida: 'IVP', dominio: 'velocidade', composto: true, valor: 75 }),
+  M({ instrumentoId: 'w', medida: 'Código', dominio: 'velocidade', metrica: 'escalar', valor: 5 }),
+  M({ instrumentoId: 'w', medida: 'Procurar Símbolos', dominio: 'velocidade', metrica: 'escalar', valor: 9 }),
+  M({ instrumentoId: 'b', medida: 'Atenção Concentrada', dominio: 'atencao', metrica: 'percentil', valor: 5 }),
+  M({ instrumentoId: 'b', medida: 'Atenção Alternada', dominio: 'atencao', metrica: 'percentil', valor: 50 }),
+  M({ instrumentoId: 'b', medida: 'Atenção Geral', dominio: 'atencao', metrica: 'percentil', composto: true, valor: 4 }),
+  M({ instrumentoId: 'e', medida: 'Extroversão', dominio: 'personalidade', natureza: 'sintoma', metrica: 'percentil', valor: 97 })
+];
+const A2 = analisar(av2, pac, L, new Date('2026-11-14T12:00:00'));
+const d2 = (id: string) => A2.dominios.find(d => d.id === id)!;
+t('IVP + 1 subteste baixo = achado isolado (não 2 medidas)', d2('velocidade').status === 'achado isolado', d2('velocidade'));
+t('Atenção Geral não soma com AC: achado isolado', d2('atencao').status === 'achado isolado', d2('atencao'));
+t('personalidade é descritiva (sem "elevada" nem convergência)', d2('personalidade').status === 'descrição de traços' && d2('personalidade').convergencia === '—');
+
 console.log(`${ok} ok, ${bad} falhas`);
 process.exit(bad ? 1 : 0);

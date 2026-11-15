@@ -61,7 +61,7 @@ export async function gerarDocx(av: Avaliacao, pac: Paciente | undefined, A: Ana
     if (s.id === 'resultados') {
       let k = 1;
       A.instrumentos.forEach(x => {
-        const ms = A.medidas.filter(m => m.inst?.id === x.inst.id);
+        const ms = A.medidas.filter(m => m.inst?.id === x.inst.id && m.motivoExclusao !== 'sem dado');
         if (!ms.length) return;
         k++;
         corpo.push(titTab(`Tabela ${k} — ${x.inst.nome}`));

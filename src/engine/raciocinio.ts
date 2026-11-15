@@ -51,7 +51,7 @@ export interface MedidaAnalisada {
   m: Medida; inst: Instrumento | undefined; lida: MedidaLida; utilizada: boolean; motivoExclusao: string | null;
   ipsativo: 'recurso relativo' | 'fragilidade relativa' | null; desvioPessoal: number | null;
 }
-export type StatusDominio = 'comprometimento demonstrado' | 'achado isolado' | 'limítrofe' | 'preservado' | 'escala elevada' | 'escala sem elevação' | 'sem referência normativa' | 'não avaliado';
+export type StatusDominio = 'comprometimento demonstrado' | 'achado isolado' | 'limítrofe' | 'preservado' | 'escala elevada' | 'escala sem elevação' | 'sem referência normativa' | 'descrição de traços' | 'não avaliado';
 export type Convergencia = 'convergente' | 'convergência parcial' | 'queixa sem confirmação' | 'achado sem queixa' | 'lacuna: queixa não avaliada' | 'sem queixa, preservado' | '—';
 export interface DominioAnalisado {
   id: string; nome: string; n: number; nUsadas: number; mediaZ: number | null; minZ: number | null;
@@ -102,16 +102,18 @@ export function analisar(av: Avaliacao, pac: Paciente | undefined, L: Limiares =
   instrumentos.forEach(x => { if (x.alerta) cons.push({ nivel: x.inst.satepsi.status === 'Não verificado' ? 'aviso' : 'erro', texto: x.alerta }); });
 
   const vistos = new Set<string>();
+  const vazias: string[] = [];
   const medidas: MedidaAnalisada[] = av.resultados.map(m => {
     const inst = instById.get(m.instrumentoId);
     const lida = lerMedida(m, L);
     let motivo: string | null = null;
     if (!inst) motivo = 'medida sem instrumento identificado';
     else if (!usoById.get(inst.id)!.utilizavel) motivo = 'instrumento sem parecer favorável/compatível no SATEPSI (ou não verificado)';
+    else if (m.valor === null && m.percentil === null && !m.classificacaoExaminador.trim() && !m.bruto.trim()) motivo = 'sem dado';
     else if (m.natureza === 'desempenho' && lida.nivel === 'sem-norma') motivo = 'sem referência normativa (apenas escore bruto)';
     if (!inst) cons.push({ nivel: 'erro', texto: `Resultado "${m.medida || '(sem nome)'}" sem identificação do instrumento.` });
     if (!m.medida.trim()) cons.push({ nivel: 'aviso', texto: `Há um resultado de ${inst?.nome || 'instrumento não identificado'} sem nome de medida/subteste.` });
-    if (m.valor === null && m.percentil === null && !m.classificacaoExaminador.trim() && !m.bruto.trim()) cons.push({ nivel: 'erro', texto: `"${m.medida || 'Medida'}" (${inst?.nome || '?'}) não tem escore, percentil nem classificação.` });
+    if (m.valor === null && m.percentil === null && !m.classificacaoExaminador.trim() && !m.bruto.trim()) vazias.push(`${m.medida || '(sem nome)'} (${inst?.nome || '?'})`);
     if (m.metrica === 'bruto' && m.natureza === 'desempenho') cons.push({ nivel: 'aviso', texto: `"${m.medida}" tem só escore bruto: sem tabela normativa não pode ser interpretado normativamente (§2.3).` });
     if (lida.inconsistencia) cons.push({ nivel: 'aviso', texto: `"${m.medida}" (${inst?.nome || '?'}): ${lida.inconsistencia}` });
     const chave = `${m.instrumentoId}|${m.medida.trim().toLowerCase()}`;
@@ -120,9 +122,15 @@ export function analisar(av: Avaliacao, pac: Paciente | undefined, L: Limiares =
     return { m, inst, lida, utilizada: !motivo, motivoExclusao: motivo, ipsativo: null, desvioPessoal: null };
   });
 
+  if (vazias.length) cons.push({ nivel: 'erro', texto: vazias.length === 1 ? `"${vazias[0]}" não tem escore, percentil nem classificação.` : `${vazias.length} medidas sem escore, percentil nem classificação — preencha ou remova: ${vazias.slice(0, 6).join('; ')}${vazias.length > 6 ? '…' : ''}.` });
+
   // ---- Etapa 7: análise intraindividual (média pessoal das medidas de desempenho utilizáveis) ----
   const desemp = medidas.filter(x => x.utilizada && x.m.natureza === 'desempenho' && x.lida.z !== null);
-  const zs = desemp.map(x => x.lida.z as number);
+  // Índice composto que resume medidas do mesmo instrumento e domínio (ex.: IVP com Código e Procurar Símbolos,
+  // Atenção Geral com AC/AD/AA) não é evidência independente: fica fora das contagens e da média pessoal.
+  const redundante = (x: MedidaAnalisada) => x.m.composto && medidas.some(y => y !== x && y.utilizada && !y.m.composto && y.m.instrumentoId === x.m.instrumentoId && y.m.dominio === x.m.dominio && y.m.natureza === x.m.natureza && (y.lida.z !== null || y.lida.nivel !== 'sem-norma'));
+  const indep = desemp.filter(x => !redundante(x));
+  const zs = indep.map(x => x.lida.z as number);
   const mp = media(zs), dpp = dp(zs);
   if (mp !== null && zs.length >= 3) desemp.forEach(x => {
     const d = (x.lida.z as number) - mp; x.desvioPessoal = r1(d);
@@ -142,8 +150,8 @@ export function analisar(av: Avaliacao, pac: Paciente | undefined, L: Limiares =
   const dominios: DominioAnalisado[] = DOMINIOS.map(d => {
     const todas = medidas.filter(x => x.m.dominio === d.id);
     const us = todas.filter(x => x.utilizada);
-    const des = us.filter(x => x.m.natureza === 'desempenho');
-    const sin = us.filter(x => x.m.natureza === 'sintoma');
+    const des = us.filter(x => x.m.natureza === 'desempenho' && !redundante(x));
+    const sin = us.filter(x => x.m.natureza === 'sintoma' && !redundante(x));
     const dz = des.filter(x => x.lida.z !== null).map(x => x.lida.z as number);
     const nBaixas = des.filter(x => x.lida.nivel === 'rebaixado' || x.lida.nivel === 'comprometido').length;
     const nLim = des.filter(x => x.lida.nivel === 'limite').length;
@@ -155,7 +163,7 @@ export function analisar(av: Avaliacao, pac: Paciente | undefined, L: Limiares =
       else if (nLim > 0 && nLim >= des.length / 2) status = 'limítrofe';
       else if (des.every(x => x.lida.nivel === 'sem-norma')) status = 'sem referência normativa';
       else status = 'preservado';
-    } else if (sin.length) status = elev ? 'escala elevada' : 'escala sem elevação';
+    } else if (sin.length) status = d.descritivo ? 'descrição de traços' : elev ? 'escala elevada' : 'escala sem elevação';
     const md = media(dz);
     let ips: DominioAnalisado['ipsativo'] = null;
     if (md !== null && mp !== null && zs.length >= 3) { if (md - mp <= -L.ipsativo) ips = 'fragilidade relativa'; else if (md - mp >= L.ipsativo) ips = 'recurso relativo'; }
@@ -165,18 +173,19 @@ export function analisar(av: Avaliacao, pac: Paciente | undefined, L: Limiares =
     if (queixa) conv = baixo ? 'convergente' : status === 'achado isolado' || status === 'limítrofe' ? 'convergência parcial' : status === 'não avaliado' || status === 'sem referência normativa' ? 'lacuna: queixa não avaliada' : 'queixa sem confirmação';
     else if (baixo || status === 'achado isolado') conv = 'achado sem queixa';
     else if (status === 'preservado' || status === 'escala sem elevação') conv = 'sem queixa, preservado';
-    return { id: d.id, nome: d.nome, n: todas.length, nUsadas: us.length, mediaZ: r1(md), minZ: r1(dz.length ? Math.min(...dz) : null), nBaixas, status, ipsativo: ips, queixa, convergencia: conv, sintomaElevado: elev };
+    if (d.descritivo) conv = '—';
+    return { id: d.id, nome: d.nome, n: todas.length, nUsadas: us.length, mediaZ: r1(md), minZ: r1(dz.length ? Math.min(...dz) : null), nBaixas, status, ipsativo: ips, queixa, convergencia: conv, sintomaElevado: d.descritivo ? null : elev };
   });
 
   // ---- Cautelas interpretativas ----
-  const nBaixas = desemp.filter(x => x.lida.nivel === 'rebaixado' || x.lida.nivel === 'comprometido').length;
+  const nBaixas = indep.filter(x => x.lida.nivel === 'rebaixado' || x.lida.nivel === 'comprometido').length;
   const cautelas: string[] = [];
-  if (desemp.length >= 8 && nBaixas > 0 && nBaixas <= 2) cautelas.push(`Há ${nBaixas} escore(s) abaixo do esperado entre ${desemp.length} medidas. Em baterias extensas, escores baixos isolados também ocorrem em pessoas sem condição clínica: não fundamente conclusões em achados isolados.`);
+  if (indep.length >= 8 && nBaixas > 0 && nBaixas <= 2) cautelas.push(`Há ${nBaixas} escore(s) abaixo do esperado entre ${indep.length} medidas. Em baterias extensas, escores baixos isolados também ocorrem em pessoas sem condição clínica: não fundamente conclusões em achados isolados.`);
   if (disc) cautelas.push(`Discrepância de ${disc.difDP.toString().replace('.', ',')} DP entre "${disc.maior}" e "${disc.menor}": o escore global deve ser interpretado com cautela; priorize a análise dos índices.`);
   if (av.observacao.validade.fatores.length) cautelas.push(`Fatores que podem ter interferido no desempenho: ${av.observacao.validade.fatores.join(', ')}.`);
   const emoc = dominios.find(d => d.id === 'emocional');
   if (emoc?.sintomaElevado && dominios.some(d => d.status === 'comprometimento demonstrado' || d.status === 'achado isolado')) cautelas.push('Escalas emocionais elevadas coexistem com desempenhos rebaixados: considere a contribuição do estado afetivo (ansiedade, humor) sobre atenção, memória e velocidade antes de atribuir os achados a um déficit primário.');
-  medidas.filter(x => !x.utilizada && x.motivoExclusao).forEach(x => cautelas.push(`"${x.m.medida || '?'}" (${x.inst?.nome || '?'}) não entra na integração: ${x.motivoExclusao}.`));
+  medidas.filter(x => !x.utilizada && x.motivoExclusao && x.motivoExclusao !== 'sem dado').forEach(x => cautelas.push(`"${x.m.medida || '?'}" (${x.inst?.nome || '?'}) não entra na integração: ${x.motivoExclusao}.`));
 
   // ---- Etapa 12: hipóteses ----
   const domById = new Map(dominios.map(d => [d.id, d]));
